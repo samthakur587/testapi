@@ -1,0 +1,26 @@
+# Use the official Python image as the base
+FROM python:3.10-slim
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy the application requirements
+COPY requirements.txt .
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Google Cloud SDK dependencies for Pub/Sub
+RUN apt-get update && apt-get install -y \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the application code
+COPY . .
+
+# Expose the application port (optional; typically not needed for workers)
+EXPOSE 8080
+RUN chmod +x /app/init.sh
+# Define the command to start the worker
+CMD ["/bin/bash", "-c", "/app/init.sh && python worker.py"]
