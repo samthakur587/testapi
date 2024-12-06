@@ -12,11 +12,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Pub/Sub Publisher and Subscriber setup
-publisher = pubsub_v1.PublisherClient.from_service_account_json("compfox-367313-8c81066d05ec.json")
-subscriber = pubsub_v1.SubscriberClient.from_service_account_json("compfox-367313-8c81066d05ec.json")
+# publisher = pubsub_v1.PublisherClient.from_service_account_json("compfox-367313-8c81066d05ec.json")
+# subscriber = pubsub_v1.SubscriberClient.from_service_account_json("compfox-367313-8c81066d05ec.json")
 
-PUBSUB_TOPIC = "projects/compfox-367313/topics/scrape-tasks"
-PUBSUB_SUBSCRIPTION = "projects/compfox-367313/subscriptions/scrape-tasks-subscription"
+# PUBSUB_TOPIC = "projects/compfox-367313/topics/scrape-tasks"
+# PUBSUB_SUBSCRIPTION = "projects/compfox-367313/subscriptions/scrape-tasks-subscription"
 
 import cloudscraper
 def scrape_website(url):
@@ -53,9 +53,10 @@ async def fetch_url():
         # )
         response = scrape_website(url="https://casetext.com/statute/texas-codes/insurance-code")
 
-        open("output.txt", "w").write(response)
+        with open("output.txt", "w") as f:
+            f.write(response)
         
-        return JSONResponse(content={"message": "URL fetched and processed"}, status_code=200)
+        return JSONResponse(content={"message": "URL fetched and processed", "data":response}, status_code=200)
 
     except Exception as e:
         logger.error(f"Error in /fetch-url: {e}")
