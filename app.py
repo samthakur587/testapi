@@ -1,63 +1,70 @@
+import signal
+import sys
 import logging
-import json
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-# from google.cloud import pubsub_v1
+from types import FrameType
+import requests
 
 # FastAPI app setup
 app = FastAPI()
 
-# Logging setup
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from utils.logging import logger
 
-# Pub/Sub Publisher and Subscriber setup
-# publisher = pubsub_v1.PublisherClient.from_service_account_json("compfox-367313-8c81066d05ec.json")
-# subscriber = pubsub_v1.SubscriberClient.from_service_account_json("compfox-367313-8c81066d05ec.json")
+# Function to simulate scraping the website
+def scrape_website(url: str) -> str:
+    try:
+        # For demonstration purposes, we use a simple GET request
+        response = requests.get(url)
+        
+        if response.status_code == 200:
+            return response.text  # Returning the HTML content as the response
+        else:
+            return f"Failed to fetch the website, status code: {response.status_code}"
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching the website: {e}")
+        return f"Error: {str(e)}"
 
-# PUBSUB_TOPIC = "projects/compfox-367313/topics/scrape-tasks"
-# PUBSUB_SUBSCRIPTION = "projects/compfox-367313/subscriptions/scrape-tasks-subscription"
-
-import cloudscraper
-def scrape_website(url):
-    scraper = cloudscraper.create_scraper()  # Use a real browser User-Agent
-    response = scraper.get(url)
-    return response.text
-
-
-# Endpoint to fetch URL from Pub/Sub (subscribe to messages)
+# Endpoint to fetch the URL and process it
 @app.get("/fetch-url")
 async def fetch_url():
     """
-    Fetches the URL message from Pub/Sub.
+    Fetches the URL and processes it.
     """
     try:
-    #     # Pull a message from Pub/Sub subscription
-    #     response = subscriber.pull(
-    #         subscription=PUBSUB_SUBSCRIPTION,
-    #         max_messages=1
-    #     )
-        
-    #     if len(response.received_messages) == 0:
-    #         return JSONResponse(content={"message": "No messages in the queue"}, status_code=200)
+        # Simulate URL fetching (this can be replaced with an actual dynamic URL later)
+        url = "https://casetext.com/statute/texas-codes/insurance-code"
 
-    #     # Extract the message (URL) from the Pub/Sub message
-    #     pubsub_message = response.received_messages[0]
-    #     message_data = json.loads(pubsub_message.message.data.decode("utf-8"))
-    #     url = message_data.get("url")
-        
-        # Acknowledge the message
-        # subscriber.acknowledge(
-        #     subscription=PUBSUB_SUBSCRIPTION,
-        #     ack_ids=[pubsub_message.ack_id]
-        # )
-        response = scrape_website(url="https://casetext.com/statute/texas-codes/insurance-code")
+        # Scrape the website
+        response = scrape_website(url)
 
+        # Write the response to a file
         with open("output.txt", "w") as f:
             f.write(response)
-        
-        return JSONResponse(content={"message": "URL fetched and processed", "data":response}, status_code=200)
+
+        # Return a JSON response with the data
+        return JSONResponse(content={"message": "URL fetched and processed", "data": response}, status_code=200)
 
     except Exception as e:
         logger.error(f"Error in /fetch-url: {e}")
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
+# Graceful shutdown handler
+def shutdown_handler(signal_int: int, frame: FrameType) -> None:
+    logger.info(f"Caught Signal {signal.strsignal(signal_int)}")
+
+    # Perform any necessary cleanup, if required (e.g., flushing logs)
+    # Flush or any other shutdown tasks can be performed here if necessary
+
+    # Safely exit program
+    sys.exit(0)
+
+if __name__ == "__main__":
+    # Running application locally, outside of a Google Cloud Environment
+    # handles Ctrl-C termination
+    signal.signal(signal.SIGINT, shutdown_handler)
+
+    app.run(host="localhost", port=8080, debug=True)
+else:
+    # handles Cloud Run container termination (SIGTERM)
+    signal.signal(signal.SIGTERM, shutdown_handler)
