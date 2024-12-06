@@ -1,33 +1,28 @@
 import signal
 import sys
 import logging
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from types import FrameType
+from flask import Flask, jsonify
 import requests
-
-# FastAPI app setup
-app = FastAPI()
-
+from types import FrameType
 from utils.logging import logger
 
-# Function to simulate scraping the website
-def scrape_website(url: str) -> str:
-    try:
-        # For demonstration purposes, we use a simple GET request
-        response = requests.get(url)
-        
-        if response.status_code == 200:
-            return response.text  # Returning the HTML content as the response
-        else:
-            return f"Failed to fetch the website, status code: {response.status_code}"
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error fetching the website: {e}")
-        return f"Error: {str(e)}"
+
+import cloudscraper
+# Flask app setup
+app = Flask(__name__)
+
+
+def scrape_website(url):
+    scraper = cloudscraper.create_scraper()  # Use a real browser User-Agent
+    response = scraper.get(url)
+    return response.text
+
+
+
 
 # Endpoint to fetch the URL and process it
-@app.get("/fetch-url")
-async def fetch_url():
+@app.route("/fetch-url", methods=["GET"])
+def fetch_url():
     """
     Fetches the URL and processes it.
     """
@@ -43,11 +38,11 @@ async def fetch_url():
             f.write(response)
 
         # Return a JSON response with the data
-        return JSONResponse(content={"message": "URL fetched and processed", "data": response}, status_code=200)
+        return jsonify({"message": "URL fetched and processed", "data": response}), 200
 
     except Exception as e:
         logger.error(f"Error in /fetch-url: {e}")
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+        return jsonify({"error": str(e)}), 500
 
 # Graceful shutdown handler
 def shutdown_handler(signal_int: int, frame: FrameType) -> None:
