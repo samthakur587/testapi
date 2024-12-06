@@ -2,7 +2,7 @@ import logging
 import json
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from google.cloud import pubsub_v1
+# from google.cloud import pubsub_v1
 
 # FastAPI app setup
 app = FastAPI()
