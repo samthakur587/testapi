@@ -41,6 +41,7 @@ COPY . ./
 RUN apt-get update && apt-get install -y redis-server
 
 # Start Redis server when the container starts.
-CMD ["sh", "-c", "service redis-server start && exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 app:app"]
+# CMD ["sh", "-c", "service redis-server start && exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 app:app"]
+CMD ["sh", "-c", "redis-server --daemonize yes && exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 app:app"]
 
 # ... existing code ...
