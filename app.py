@@ -12,12 +12,13 @@ import datetime
 from google.cloud import storage
 from dotenv import load_dotenv
 from celery import Celery
+from tor import renew_tor_ip
 
 load_dotenv()
 
 BUCKET_NAME = 'case-code-pipeline'
 
-celery = Celery('app', broker='redis://localhost:6379/0') 
+# celery = Celery('app', broker='redis://localhost:6379/0') 
 
 
 # Flask app setup
@@ -29,7 +30,7 @@ def scrape_website(url):
     response = scraper.get(url)
     return response.text
 
-@celery.task
+# @celery.task
 def process_pipeline(url, html_content):
     try:
         chapter_links = extract_chapterlinks(html_content)
@@ -62,10 +63,10 @@ def process_pipeline(url, html_content):
 
 
 
-@celery.task
+# @celery.task
 def save_to_gcp_bucket(bucket_name, destination_blob_name, data):
     """Uploads data to the specified GCP bucket."""
-    client = storage.Client()
+    client = storage.Client("compfox-367313-8c81066d05ec.json")
     bucket = client.bucket(bucket_name)
 
     # Get the current date
@@ -94,7 +95,7 @@ def fetch_url():
         response = scrape_website(url)
 
         # Write the response to a file
-        with open("output.txt", "w") as f:
+        with open("output2.html", "w") as f:
             f.write(response)
         
         # Process the pipeline
@@ -103,8 +104,8 @@ def fetch_url():
 
         # Save processed data to GCP bucket
          # Specify your bucket name
-         
-        task = save_to_gcp_bucket.apply_async(args=[BUCKET_NAME, f"processed_{url.replace('://', '_').replace('/', '_')}.json", response])
+        task = save_to_gcp_bucket(bucket_name=BUCKET_NAME, destination_blob_name=f"processed_{url.replace('://', '_').replace('/', '_')}.json", data=response)
+        # task = save_to_gcp_bucket.apply_async(args=[BUCKET_NAME, f"processed_{url.replace('://', '_').replace('/', '_')}.json", response])
         return jsonify({"message": "URL fetched and processed", "task_id": task.id}), 200
 
     except Exception as e:

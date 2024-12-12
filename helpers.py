@@ -2,6 +2,7 @@ import cloudscraper
 from bs4 import BeautifulSoup
 import time
 import random
+from tor import renew_tor_ip
 
 
 def extract_chapterlinks(html_content):
@@ -59,4 +60,5 @@ def extract_part_links(chapter_links):
         part_links.append(extract_chapterlinks(scrape_website(link)))
         if random.choice([True, False]):
             time.sleep(random.uniform(1, 2))
+            renew_tor_ip()
     return part_links
