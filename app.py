@@ -1,4 +1,4 @@
-import signal
+import signal, cloudscraper
 import sys,os
 import logging
 from flask import Flask, jsonify, request
@@ -11,13 +11,15 @@ from document_helpers import process_html_documents
 import datetime
 from google.cloud import storage
 from dotenv import load_dotenv
+from celery import Celery
 
 load_dotenv()
 
 BUCKET_NAME = 'case-code-pipeline'
 
+celery = Celery('app', broker='redis://localhost:6379/0') 
 
-import cloudscraper
+
 # Flask app setup
 app = Flask(__name__)
 
@@ -27,7 +29,7 @@ def scrape_website(url):
     response = scraper.get(url)
     return response.text
 
-
+@celery.task
 def process_pipeline(url, html_content):
     try:
         chapter_links = extract_chapterlinks(html_content)
@@ -60,6 +62,20 @@ def process_pipeline(url, html_content):
 
 
 
+@celery.task
+def save_to_gcp_bucket(bucket_name, destination_blob_name, data):
+    """Uploads data to the specified GCP bucket."""
+    client = storage.Client()
+    bucket = client.bucket(bucket_name)
+
+    # Get the current date
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    # Create a folder path with the current date
+    folder_path = f"{current_date}/{destination_blob_name}"
+
+    blob = bucket.blob(folder_path)  # Use the folder path
+    blob.upload_from_string(data) 
+
 
 # Endpoint to fetch the URL and process it
 @app.route("/fetch-url", methods=["GET"])
@@ -87,27 +103,15 @@ def fetch_url():
 
         # Save processed data to GCP bucket
          # Specify your bucket name
-        save_to_gcp_bucket(BUCKET_NAME, f"processed_{url.replace('://', '_').replace('/', '_')}.json", response)
-
-        # Return a JSON response with the data
-        return jsonify({"message": "URL fetched and processed", "data": response}), 200
+         
+        task = save_to_gcp_bucket.apply_async(args=[BUCKET_NAME, f"processed_{url.replace('://', '_').replace('/', '_')}.json", response])
+        return jsonify({"message": "URL fetched and processed", "task_id": task.id}), 200
 
     except Exception as e:
         logger.error(f"Error in /fetch-url: {e}")
         return jsonify({"error": str(e)}), 500
 
-def save_to_gcp_bucket(bucket_name, destination_blob_name, data):
-    """Uploads data to the specified GCP bucket."""
-    client = storage.Client()
-    bucket = client.bucket(bucket_name)
-
-    # Get the current date
-    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-    # Create a folder path with the current date
-    folder_path = f"{current_date}/{destination_blob_name}"
-
-    blob = bucket.blob(folder_path)  # Use the folder path
-    blob.upload_from_string(data)  # Upload the processed data as a string
+ # Upload the processed data as a string
 
 # Graceful shutdown handler
 def shutdown_handler(signal_int: int, frame: FrameType) -> None:
