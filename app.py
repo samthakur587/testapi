@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BUCKET_NAME = os.getenv("BUCKET_NAME")
+BUCKET_NAME = 'case-code-pipeline'
 
 
 import cloudscraper
